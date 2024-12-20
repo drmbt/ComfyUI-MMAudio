@@ -29,6 +29,19 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
+def get_model_path(model_path):
+    import folder_paths
+    
+    # Try the new method first
+    try:
+        return folder_paths.get_full_path_or_raise(model_path)
+    except AttributeError:
+        # Fallback for older ComfyUI versions
+        base_path = folder_paths.get_folder_paths("models")
+        if isinstance(base_path, list):
+            base_path = base_path[0]
+        return os.path.join(base_path, model_path)
+
 def process_video_tensor(video_tensor: torch.Tensor, duration_sec: float) -> tuple[torch.Tensor, torch.Tensor, float]:
     _CLIP_SIZE = 384
     _CLIP_FPS = 8.0
@@ -122,7 +135,7 @@ class MMAudioModelLoader:
 
         base_dtype = {"fp8_e4m3fn": torch.float8_e4m3fn, "fp8_e4m3fn_fast": torch.float8_e4m3fn, "bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[base_precision]
 
-        mmaudio_model_path = folder_paths.get_full_path_or_raise("mmaudio", mmaudio_model)
+        mmaudio_model_path = get_model_path(mmaudio_model)
         mmaudio_sd = load_torch_file(mmaudio_model_path, device=offload_device)
 
         if "small" in mmaudio_model:
@@ -183,7 +196,7 @@ class MMAudioVoCoderLoader:
 
     def loadmodel(self, vocoder_model):
         from .mmaudio.ext.bigvgan import BigVGAN
-        vocoder_model_path = folder_paths.get_full_path_or_raise("mmaudio", vocoder_model)
+        vocoder_model_path = get_model_path(vocoder_model)
         vocoder_model = BigVGAN.from_pretrained(vocoder_model_path).eval()
         return (vocoder_model_path,)
         
@@ -218,7 +231,7 @@ class MMAudioFeatureUtilsLoader:
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
         #synchformer
-        synchformer_path = folder_paths.get_full_path_or_raise("mmaudio", synchformer_model)
+        synchformer_path = get_model_path(synchformer_model)
         synchformer_sd = load_torch_file(synchformer_path, device=offload_device)
         synchformer = Synchformer()
         synchformer.load_state_dict(synchformer_sd)
@@ -245,7 +258,7 @@ class MMAudioFeatureUtilsLoader:
             assert bigvgan_vocoder_model is not None, "bigvgan_vocoder_model must be provided for 16k mode"
             bigvgan_vocoder = bigvgan_vocoder_model
         
-        vae_path = folder_paths.get_full_path_or_raise("mmaudio", vae_model)
+        vae_path = get_model_path(vae_model)
         vae_sd = load_torch_file(vae_path, device=offload_device)
         vae = AutoEncoderModule(
             vae_state_dict=vae_sd,
@@ -256,7 +269,7 @@ class MMAudioFeatureUtilsLoader:
 
         #clip
        
-        clip_model_path = folder_paths.get_full_path_or_raise("mmaudio", clip_model)
+        clip_model_path = get_model_path(clip_model)
         clip_config_path = os.path.join(script_directory, "configs", "DFN5B-CLIP-ViT-H-14-384.json")
         with open(clip_config_path) as f:
              clip_config = json.load(f)
